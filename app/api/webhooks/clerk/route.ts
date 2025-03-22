@@ -7,7 +7,8 @@ export async function POST(req: Request) {
   const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
 
   if (!WEBHOOK_SECRET) {
-    throw new Error('Please add CLERK_WEBHOOK_SECRET to your environment variables');
+    console.error('Missing CLERK_WEBHOOK_SECRET');
+    return new NextResponse('Error: Missing webhook secret', { status: 500 });
   }
 
   // Get the headers
@@ -18,6 +19,7 @@ export async function POST(req: Request) {
 
   // If there are no headers, error out
   if (!svix_id || !svix_timestamp || !svix_signature) {
+    console.error('Missing svix headers');
     return new NextResponse('Error: Missing svix headers', { status: 400 });
   }
 
@@ -42,65 +44,75 @@ export async function POST(req: Request) {
     return new NextResponse('Error verifying webhook', { status: 400 });
   }
 
-  // Get the ID and type
-  const eventType = evt.type;
+  console.log('Webhook verified successfully');
 
-  console.log(`Webhook received: ${eventType}`);
+  // Get the event type
+  const eventType = evt.type;
+  console.log(`Webhook type: ${eventType}`);
 
   // Handle different event types
-  switch (eventType) {
-    case 'user.created': {
+  if (eventType === 'user.created') {
+    try {
       // Extract user data from the Clerk event
-      const { id, first_name, last_name } = evt.data;
-
-      // Prepare the data for your API
       const userData = {
-        clerkId: id,
-        name: `${first_name || ''} ${last_name || ''}`.trim() || 'New User',
-        // You can add other default values if needed
+        clerkId: evt.data.id,
+        name: `${evt.data.first_name || ''} ${evt.data.last_name || ''}`.trim() || 'New User',
       };
 
-      try {
-        // Call your external API to create a user
-        const response = await fetch('https://hack-viz-microserver.vercel.app/api/users', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(userData),
+      console.log('Preparing to send user data:', userData);
+
+      // Call your external API to create a user
+      const response = await fetch('https://hack-viz-microserver.vercel.app/api/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('API error response:', errorData);
+        return new NextResponse(JSON.stringify({
+          success: false,
+          error: 'Failed to create user in external API',
+          details: errorData
+        }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' }
         });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          console.error('Error creating user in external API:', data);
-        } else {
-          console.log('User successfully created in external API:', data);
-        }
-      } catch (error) {
-        console.error('Failed to call external API:', error);
       }
-      break;
-    }
 
-    case 'user.updated': {
-      // You could implement update logic here if needed
-      // This would require a PUT or PATCH endpoint in your API
-      break;
-    }
+      const successData = await response.json();
+      console.log('User created successfully:', successData);
 
-    case 'user.deleted': {
-      // You could implement delete logic here if needed
-      // This would require a DELETE endpoint in your API
-      const { id } = evt.data;
-
-      // You would need a delete endpoint in your API for this
-      // await fetch(`https://hack-viz-microserver.vercel.app/api/users/${id}`, {
-      //   method: 'DELETE',
-      // });
-      break;
+      return new NextResponse(JSON.stringify({
+        success: true,
+        message: 'User created in external database',
+        data: successData
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } catch (error) {
+      console.error('Error processing webhook:', error);
+      return new NextResponse(JSON.stringify({
+        success: false,
+        error: 'Failed to process webhook',
+        details: error instanceof Error ? error.message : String(error)
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
   }
 
-  return new NextResponse('Webhook processed successfully', { status: 200 });
+  // Default response for other event types
+  return new NextResponse(JSON.stringify({
+    success: true,
+    message: `Webhook processed for ${eventType}`
+  }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' }
+  });
 }
