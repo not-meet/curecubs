@@ -1,5 +1,6 @@
 "use client";
 
+import { JSX } from "react";
 import { cn } from "@/lib/utils";
 import {
   AnimatePresence,
@@ -9,7 +10,7 @@ import {
 } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 
-interface PointerProps extends Omit<HTMLMotionProps<"div">, "ref"> {}
+interface PointerProps extends Omit<HTMLMotionProps<"div">, "ref"> { }
 
 /**
  * A custom pointer component that displays an animated cursor.
