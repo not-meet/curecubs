@@ -134,7 +134,7 @@ export default function AIInteractiveBot() {
 
     try {
       // Call your API here with timeout handling
-      const response = await fetch(`http://192.168.127.87:8000/ask-therapist/`, {
+      const response = await fetch(`https://milo-ynas.onrender.com/ask-therapist/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

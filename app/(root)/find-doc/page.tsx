@@ -50,7 +50,7 @@ const FindDoctors: React.FC = () => {
     setLoading(true);
     try {
       // Call doctors API with the fixed location
-      const response = await axios.post('http://192.168.127.87:8000/doctors_list/', {
+      const response = await axios.post('https://milo-ynas.onrender.com/doctors_list/', {
         lat: 27.492413,
         lon: 77.673676,
         specialty: specialty || "doctor"
