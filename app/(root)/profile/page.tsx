@@ -33,10 +33,22 @@ export default function CompleteProfile() {
     setIsLoading(true);
 
     try {
+      let bloodGroupEnum;
+      switch (formData.bloodGroup) {
+        case "O+": bloodGroupEnum = "O_POS"; break;
+        case "O-": bloodGroupEnum = "O_NEG"; break;
+        case "A+": bloodGroupEnum = "A_POS"; break;
+        case "A-": bloodGroupEnum = "A_NEG"; break;
+        case "B+": bloodGroupEnum = "B_POS"; break;
+        case "B-": bloodGroupEnum = "B_NEG"; break;
+        case "AB+": bloodGroupEnum = "AB_POS"; break;
+        case "AB-": bloodGroupEnum = "AB_NEG"; break;
+        default: bloodGroupEnum = null;
+      }
       // Prepare data for API call
       const userData = {
         age: parseInt(formData.age),
-        bloodGroup: formData.bloodGroup,
+        bloodGroup: bloodGroupEnum,
         sex: formData.sex,
         address: formData.address,
         metadata: {
