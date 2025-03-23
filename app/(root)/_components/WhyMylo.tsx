@@ -10,7 +10,7 @@ import {
 
 const WhyMiloSection = () => {
   // Array of PNG image numbers
-  const images = [1, 2, 3, 4, 5];
+  const images = [1, 4, 2, 3, 5];
 
   return (
     <section className="bg-white py-16">

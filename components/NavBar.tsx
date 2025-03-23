@@ -10,7 +10,7 @@ const GlassNavbar = () => {
   const navItems = [
     { id: "Dr-near-me", label: "Dr Near Me", icon: <FileText className="w-5 h-5" />, path: "/find-doc" },
     { id: "talk-to-therapist", label: "Talk to Therapist", icon: <MessageSquare className="w-5 h-5" />, path: "/therapist" },
-    { id: "get-medicine", label: "Get Medicine", icon: <Pill className="w-5 h-5" />, path: "/get-med" },
+    { id: "schemes", label: "schemes", icon: <Pill className="w-5 h-5" />, path: "/schemes" },
     { id: "check-reports", label: "Check Reports", icon: <FileBarChart className="w-5 h-5" />, path: "/reports" },
   ];
 
@@ -31,8 +31,8 @@ const GlassNavbar = () => {
               <Link key={item.id} href={item.path} passHref>
                 <button
                   className={`flex items-center px-4 py-2 rounded-full transition-all duration-300 ${activeItem === item.id
-                      ? "bg-[#084A6D]/70 text-white shadow-md"
-                      : "hover:bg-white/30 text-[#084A6D]"
+                    ? "bg-[#084A6D]/70 text-white shadow-md"
+                    : "hover:bg-white/30 text-[#084A6D]"
                     }`}
                   onClick={() => setActiveItem(item.id)}
                 >

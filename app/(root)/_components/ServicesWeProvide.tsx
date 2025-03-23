@@ -74,31 +74,30 @@ export function ServicesWeProvide() {
               key={index}
               className={`col-span-1 overflow-hidden border-none bg-gradient-to-br ${service.color} shadow-lg transition-all hover:shadow-xl`}
             >
-              <CardHeader className="relative pb-2">
-                <CardTitle className="text-xl font-bold flex items-center gap-2">
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{
-                      type: "spring",
-                      stiffness: 260,
-                      damping: 20,
-                      delay: 0.1 * index
-                    }}
-                  >
-                    <service.icon className={service.textColor} />
-                  </motion.div>
+              <CardContent className="flex flex-col items-center justify-center p-6 h-full">
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{
+                    type: "spring",
+                    stiffness: 260,
+                    damping: 20,
+                    delay: 0.1 * index
+                  }}
+                  className="mb-4"
+                >
+                  <service.icon className={`${service.textColor} h-10 w-10`} />
+                </motion.div>
+
+                <CardTitle className={`text-xl font-bold mb-3 text-center ${service.headingColor}`}>
                   {service.title}
                 </CardTitle>
-                <CardDescription className={`text-lg ${service.textColor}`}>
+
+                <CardDescription className={`text-lg text-center ${service.textColor}`}>
                   {service.description}
                 </CardDescription>
-              </CardHeader>
-              <CardContent className="relative flex h-36 items-center justify-center p-6">
-                <span className={`pointer-events-none text-center text-lg font-medium ${service.headingColor}`}>
-                  Hover to explore
-                </span>
               </CardContent>
+
               <Pointer className={service.pointerColor}>
                 <motion.div
                   animate={{

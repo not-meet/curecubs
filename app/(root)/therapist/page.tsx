@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback, memo } from "react";
 import { cn } from "@/lib/utils";
 import { DotPattern } from "@/components/magicui/dot-pattern";
 
@@ -8,36 +8,132 @@ import { DotPattern } from "@/components/magicui/dot-pattern";
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+  id: string; // Added unique ID for better list rendering
 }
 
-export default function AIInteractiveBot() {
-  // Define proper types for state variables
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [inputValue, setInputValue] = useState<string>("");
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+// Memoized message component to prevent unnecessary re-renders
+const MessageItem = memo(({ message }: { message: Message }) => (
+  <div
+    className={cn(
+      "flex max-w-[80%] p-4 rounded-lg shadow-sm",
+      message.role === "user"
+        ? "ml-auto bg-indigo-100 text-indigo-800"
+        : "mr-auto bg-green-100 text-green-800"
+    )}
+  >
+    {message.content}
+  </div>
+));
+
+// Memoized loading indicator
+const LoadingIndicator = memo(() => (
+  <div className="mr-auto max-w-[80%] p-4 rounded-lg bg-green-100 flex items-center space-x-2 shadow-sm">
+    <div className="w-2 h-2 bg-green-600 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+    <div className="w-2 h-2 bg-green-600 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+    <div className="w-2 h-2 bg-green-600 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+  </div>
+));
+
+// Memoized message list component
+const MessageList = memo(({ messages, isLoading }: { messages: Message[]; isLoading: boolean }) => {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
-  // Scroll to bottom of messages when new messages are added
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
 
-  // Define proper type for the form event
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  if (messages.length === 0) {
+    return (
+      <div className="h-full flex items-center justify-center text-indigo-300 text-lg">
+        Start a conversation...
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {messages.map((message) => (
+        <MessageItem key={message.id} message={message} />
+      ))}
+      {isLoading && <LoadingIndicator />}
+      <div ref={messagesEndRef} />
+    </div>
+  );
+});
+
+// Debounce function implementation
+const debounce = <F extends (...args: any[]) => any>(
+  func: F,
+  waitFor: number
+) => {
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+
+  const debounced = (...args: Parameters<F>) => {
+    if (timeout !== null) {
+      clearTimeout(timeout);
+    }
+    timeout = setTimeout(() => func(...args), waitFor);
+  };
+
+  return debounced;
+};
+
+export default function AIInteractiveBot() {
+  // Define proper types for state variables
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [inputValue, setInputValue] = useState<string>("");
+  const [displayValue, setDisplayValue] = useState<string>(""); // Display value for immediate feedback
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Debounced input handler
+  const debouncedSetInput = useCallback(
+    debounce((value: string) => {
+      setInputValue(value);
+    }, 100),
+    []
+  );
+
+  // Handle input changes with immediate visual feedback
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setDisplayValue(value); // Update display immediately for responsive feeling
+    debouncedSetInput(value); // Debounce the actual state update
+  }, [debouncedSetInput]);
+
+  // Memoized submit handler
+  const handleSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!inputValue.trim()) return;
 
+    // Cancel any in-flight requests
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
     // Add user message to the conversation
-    const userMessage: Message = { role: "user", content: inputValue };
+    const userMessage: Message = {
+      role: "user",
+      content: inputValue,
+      id: Date.now().toString() // Simple unique ID
+    };
+
     setMessages((prev) => [...prev, userMessage]);
+    setDisplayValue("");
     setInputValue("");
     setIsLoading(true);
 
+    // Create new abort controller for this request
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    // Set a timeout to abort long-running requests
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
     try {
-      // Call your API here
-      // This is a placeholder for your actual API call
+      // Call your API here with timeout handling
       const response = await fetch(`http://192.168.127.87:8000/ask-therapist/`, {
         method: "POST",
         headers: {
@@ -46,6 +142,7 @@ export default function AIInteractiveBot() {
         body: JSON.stringify({
           user_input: inputValue,
         }),
+        signal: controller.signal
       });
 
       if (!response.ok) {
@@ -55,28 +152,50 @@ export default function AIInteractiveBot() {
       const data = await response.json();
 
       // Add AI response to the conversation
-      setMessages((prev) => [...prev, { role: "assistant", content: data.response }]);
-    } catch (error) {
-      console.error("Error:", error);
-      // Add error message to conversation
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "Sorry, I encountered an error. Please try again." },
+        {
+          role: "assistant",
+          content: data.response,
+          id: Date.now().toString()
+        }
       ]);
+    } catch (error) {
+      // Only add error message if the request wasn't aborted
+      if ((error as Error).name !== 'AbortError') {
+        console.error("Error:", error);
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: "Sorry, I encountered an error. Please try again.",
+            id: Date.now().toString()
+          },
+        ]);
+      }
     } finally {
-      setIsLoading(false);
+      clearTimeout(timeoutId);
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+        setIsLoading(false);
+      }
     }
-  };
+  }, [inputValue]);
+
+  // Reduce background pattern complexity when typing/loading
+  const showFullBackground = !isLoading && !inputValue;
 
   return (
     <div className="relative flex min-h-screen w-full flex-col overflow-hidden rounded-lg border bg-blue-50">
-      {/* Background pattern with pastel blue */}
+      {/* Background pattern with reduced opacity when typing */}
       <DotPattern
         className={cn(
-          "absolute inset-0 [mask-image:radial-gradient(600px_circle_at_center,white,transparent)]",
+          "absolute inset-0 transition-opacity duration-300",
+          "[mask-image:radial-gradient(600px_circle_at_center,white,transparent)]",
+          showFullBackground ? "opacity-100" : "opacity-30"
         )}
-        color="rgba(191, 219, 254, 0.6)" // Pastel blue color
-        size={24}
+        color="rgba(191, 219, 254, 0.6)"
+        size={showFullBackground ? 24 : 48} // Increase size when typing to reduce complexity
       />
 
       {/* Header with pastel indigo */}
@@ -91,35 +210,7 @@ export default function AIInteractiveBot() {
       <div className="flex flex-col flex-1 overflow-hidden relative z-10">
         {/* Messages area */}
         <div className="flex-1 overflow-y-auto p-6">
-          {messages.length === 0 ? (
-            <div className="h-full flex items-center justify-center text-indigo-300 text-lg">
-              Start a conversation...
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {messages.map((message, index) => (
-                <div
-                  key={index}
-                  className={cn(
-                    "flex max-w-[80%] p-4 rounded-lg shadow-sm",
-                    message.role === "user"
-                      ? "ml-auto bg-indigo-100 text-indigo-800" // Pastel indigo for user messages
-                      : "mr-auto bg-green-100 text-green-800" // Pastel matcha green for assistant messages
-                  )}
-                >
-                  {message.content}
-                </div>
-              ))}
-              {isLoading && (
-                <div className="mr-auto max-w-[80%] p-4 rounded-lg bg-green-100 flex items-center space-x-2 shadow-sm">
-                  <div className="w-2 h-2 bg-green-600 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                  <div className="w-2 h-2 bg-green-600 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                  <div className="w-2 h-2 bg-green-600 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
-                </div>
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-          )}
+          <MessageList messages={messages} isLoading={isLoading} />
         </div>
 
         {/* Input area with pastel colors */}
@@ -127,15 +218,20 @@ export default function AIInteractiveBot() {
           <div className="flex items-center space-x-3">
             <input
               type="text"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
+              value={displayValue}
+              onChange={handleInputChange}
               placeholder="Type your message here..."
               className="flex-1 py-3 px-6 rounded-full border border-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-300 text-base text-indigo-700 placeholder:text-indigo-300"
               disabled={isLoading}
             />
             <button
               type="submit"
-              className="p-3 rounded-full bg-green-500 text-white hover:bg-green-600 transition-colors"
+              className={cn(
+                "p-3 rounded-full text-white transition-colors",
+                (isLoading || !inputValue.trim())
+                  ? "bg-green-300 cursor-not-allowed"
+                  : "bg-green-500 hover:bg-green-600"
+              )}
               disabled={isLoading || !inputValue.trim()}
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
