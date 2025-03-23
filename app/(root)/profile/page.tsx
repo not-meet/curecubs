@@ -69,7 +69,7 @@ export default function CompleteProfile() {
 
       if (data.success) {
         // Redirect to dashboard or profile page
-        router.push('/dashboard');
+        router.push('/');
       } else {
         throw new Error(data.error || 'Failed to update profile');
       }
