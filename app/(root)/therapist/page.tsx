@@ -38,14 +38,13 @@ export default function AIInteractiveBot() {
     try {
       // Call your API here
       // This is a placeholder for your actual API call
-      const response = await fetch("/api/chat", {
+      const response = await fetch(`http://192.168.127.87:8000/ask-therapist/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          message: inputValue,
-          conversationHistory: messages,
+          user_input: inputValue,
         }),
       });
 
@@ -70,20 +69,20 @@ export default function AIInteractiveBot() {
   };
 
   return (
-    <div className="relative flex min-h-screen w-full flex-col overflow-hidden rounded-lg border bg-background">
-      {/* Background pattern - made more opaque and using pastel colors */}
+    <div className="relative flex min-h-screen w-full flex-col overflow-hidden rounded-lg border bg-blue-50">
+      {/* Background pattern with pastel blue */}
       <DotPattern
         className={cn(
-          "absolute inset-0  [mask-image:radial-gradient(600px_circle_at_center,white,transparent)]",
+          "absolute inset-0 [mask-image:radial-gradient(600px_circle_at_center,white,transparent)]",
         )}
-        color="rgba(173, 216, 230, 0.7)" // Pastel blue color
+        color="rgba(191, 219, 254, 0.6)" // Pastel blue color
         size={24}
       />
 
-      {/* Header */}
-      <div className="relative z-10 text-center p-8 mt-10 border-b">
-        <h1 className="text-3xl font-bold">Share what's bothering you!</h1>
-        <p className="text-muted-foreground mt-4 text-lg">
+      {/* Header with pastel indigo */}
+      <div className="relative z-10 text-center p-8 mt-10 border-b border-indigo-100">
+        <h1 className="text-3xl font-bold text-indigo-600">Share what's bothering you!</h1>
+        <p className="text-indigo-400 mt-4 text-lg">
           Talk through your problems with an AI that listens
         </p>
       </div>
@@ -93,7 +92,7 @@ export default function AIInteractiveBot() {
         {/* Messages area */}
         <div className="flex-1 overflow-y-auto p-6">
           {messages.length === 0 ? (
-            <div className="h-full flex items-center justify-center text-muted-foreground text-lg">
+            <div className="h-full flex items-center justify-center text-indigo-300 text-lg">
               Start a conversation...
             </div>
           ) : (
@@ -104,18 +103,18 @@ export default function AIInteractiveBot() {
                   className={cn(
                     "flex max-w-[80%] p-4 rounded-lg shadow-sm",
                     message.role === "user"
-                      ? "ml-auto bg-primary text-primary-foreground"
-                      : "mr-auto bg-muted"
+                      ? "ml-auto bg-indigo-100 text-indigo-800" // Pastel indigo for user messages
+                      : "mr-auto bg-green-100 text-green-800" // Pastel matcha green for assistant messages
                   )}
                 >
                   {message.content}
                 </div>
               ))}
               {isLoading && (
-                <div className="mr-auto max-w-[80%] p-4 rounded-lg bg-muted flex items-center space-x-2 shadow-sm">
-                  <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                  <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                  <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                <div className="mr-auto max-w-[80%] p-4 rounded-lg bg-green-100 flex items-center space-x-2 shadow-sm">
+                  <div className="w-2 h-2 bg-green-600 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                  <div className="w-2 h-2 bg-green-600 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                  <div className="w-2 h-2 bg-green-600 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
                 </div>
               )}
               <div ref={messagesEndRef} />
@@ -123,20 +122,20 @@ export default function AIInteractiveBot() {
           )}
         </div>
 
-        {/* Input area */}
-        <form onSubmit={handleSubmit} className="p-6 border-t bg-background/80 backdrop-blur-sm">
+        {/* Input area with pastel colors */}
+        <form onSubmit={handleSubmit} className="p-6 border-t border-indigo-100 bg-blue-50/80 backdrop-blur-sm">
           <div className="flex items-center space-x-3">
             <input
               type="text"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               placeholder="Type your message here..."
-              className="flex-1 py-3 px-6 rounded-full border focus:outline-none focus:ring-2 focus:ring-primary text-base"
+              className="flex-1 py-3 px-6 rounded-full border border-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-300 text-base text-indigo-700 placeholder:text-indigo-300"
               disabled={isLoading}
             />
             <button
               type="submit"
-              className="p-3 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+              className="p-3 rounded-full bg-green-500 text-white hover:bg-green-600 transition-colors"
               disabled={isLoading || !inputValue.trim()}
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

@@ -6,50 +6,11 @@ import axios from 'axios';
 
 // Types
 interface Doctor {
-  uid: string;
-  profile: {
-    first_name: string;
-    last_name: string;
-    title: string;
-    image_url: string;
-    gender: string;
-    bio: string;
-  };
-  practices: Array<{
-    location_slug: string;
-    within_search_area: boolean;
-    distance: number;
-    lat: number;
-    lon: number;
-    visit_address: {
-      street: string;
-      street2: string;
-      city: string;
-      state: string;
-      zip: string;
-    };
-    phones: Array<{
-      number: string;
-      type: string;
-    }>;
-    office_hours: string[];
-    accepts_new_patients: boolean;
-  }>;
-  specialties: Array<{
-    uid: string;
-    name: string;
-    description: string;
-  }>;
-  insurances: Array<{
-    insurance_plan: {
-      uid: string;
-      name: string;
-    };
-    insurance_provider: {
-      uid: string;
-      name: string;
-    };
-  }>;
+  name: string;
+  address: string;
+  category: string[];
+  latitude: number;
+  longitude: number;
 }
 
 interface Location {
@@ -63,63 +24,56 @@ const containerStyle = {
 };
 
 const FindDoctors: React.FC = () => {
-  const [address, setAddress] = useState<string>('');
   const [specialty, setSpecialty] = useState<string>('');
   const [radius, setRadius] = useState<number>(5);
-  const [userLocation, setUserLocation] = useState<Location | null>(null);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
-  const [mapCenter, setMapCenter] = useState<Location>({ lat: 37.7749, lng: -122.4194 }); // Default: San Francisco
+  const [mapCenter, setMapCenter] = useState<Location>({ lat: 27.492413, lng: 77.673676 }); // Default: Mathura
   const [loading, setLoading] = useState<boolean>(false);
 
-  // Get user's current location when page loads
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const currentLocation = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          };
-          setUserLocation(currentLocation);
-          setMapCenter(currentLocation);
-        },
-        (error) => {
-          console.error('Error getting current location:', error);
-        }
-      );
-    }
-  }, []);
+  // Calculate distance between two coordinates in km
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371; // Radius of the earth in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distance = R * c; // Distance in km
+    return distance;
+  };
 
-  // Find doctors based on location
+  // Find doctors based on location and specialty
   const findDoctors = async () => {
     setLoading(true);
     try {
-      // First geocode the address if provided
-      if (address) {
-        const geocodeResponse = await axios.get(`/api/geocode?address=${encodeURIComponent(address)}`);
-
-        if (geocodeResponse.data.location) {
-          setUserLocation(geocodeResponse.data.location);
-          setMapCenter(geocodeResponse.data.location);
-        }
-      }
-
-      // Use either the geocoded location or current user location
-      const location = userLocation || mapCenter;
-
-      // Call BetterDoctor API
-      const response = await axios.get('/api/doctors', {
-        params: {
-          lat: location.lat,
-          lng: location.lng,
-          radius,
-          specialty: specialty || undefined
-        }
+      // Call doctors API with the fixed location
+      const response = await axios.post('http://192.168.127.87:8000/doctors_list/', {
+        lat: 27.492413,
+        lon: 77.673676,
+        specialty: specialty || "doctor"
       });
 
-      if (response.data.data) {
-        setDoctors(response.data.data);
+      if (response.data && response.data.response && response.data.response.doctors) {
+        // Add distance property to each doctor
+        const doctorsWithDistance = response.data.response.doctors.map((doctor: Doctor) => {
+          const distance = calculateDistance(
+            mapCenter.lat,
+            mapCenter.lng,
+            doctor.latitude,
+            doctor.longitude
+          );
+          return { ...doctor, distance };
+        });
+
+        // Filter by radius if specified
+        const filteredDoctors = doctorsWithDistance.filter(
+          (doctor: Doctor & { distance: number }) => doctor.distance <= radius
+        );
+
+        setDoctors(filteredDoctors);
       }
     } catch (error) {
       console.error('Error finding doctors:', error);
@@ -128,9 +82,11 @@ const FindDoctors: React.FC = () => {
     }
   };
 
-  // Get primary practice location for a doctor
-  const getPrimaryPractice = (doctor: Doctor) => {
-    return doctor.practices.find(practice => practice.within_search_area) || doctor.practices[0];
+  // Get category icon
+  const getCategoryIcon = (categories: string[]): string => {
+    if (categories.includes('dentist')) return '🦷';
+    if (categories.includes('specialist')) return '👨‍⚕️';
+    return '🏥';
   };
 
   return (
@@ -143,27 +99,18 @@ const FindDoctors: React.FC = () => {
           <h2 className="text-xl font-semibold mb-4">Search Criteria</h2>
 
           <div className="mb-4">
-            <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">Your Address</label>
-            <input
-              type="text"
-              id="address"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              placeholder="Enter your address"
-              className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-
-          <div className="mb-4">
-            <label htmlFor="specialty" className="block text-sm font-medium text-gray-700 mb-1">Specialty (Optional)</label>
-            <input
-              type="text"
+            <label htmlFor="specialty" className="block text-sm font-medium text-gray-700 mb-1">Specialty</label>
+            <select
               id="specialty"
               value={specialty}
               onChange={(e) => setSpecialty(e.target.value)}
-              placeholder="e.g. Cardiologist, Pediatrician"
               className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500"
-            />
+            >
+              <option value="">Any Specialty</option>
+              <option value="dentist">Dentist</option>
+              <option value="general practitioner">General Practitioner</option>
+              <option value="specialist">Specialist</option>
+            </select>
           </div>
 
           <div className="mb-4">
@@ -195,64 +142,52 @@ const FindDoctors: React.FC = () => {
               <GoogleMap
                 mapContainerStyle={containerStyle}
                 center={mapCenter}
-                zoom={12}
+                zoom={14}
               >
-                {/* User location marker */}
-                {userLocation && (
-                  <Marker
-                    position={userLocation}
-                    icon={{
-                      url: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png"
-                    }}
-                  />
-                )}
+                {/* Center location marker */}
+                <Marker
+                  position={mapCenter}
+                  icon={{
+                    url: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png"
+                  }}
+                />
 
                 {/* Doctor markers */}
-                {doctors.map((doctor) => {
-                  const practice = getPrimaryPractice(doctor);
-                  if (!practice) return null;
-
-                  return (
-                    <Marker
-                      key={doctor.uid}
-                      position={{ lat: practice.lat, lng: practice.lon }}
-                      onClick={() => setSelectedDoctor(doctor)}
-                    />
-                  );
-                })}
+                {doctors.map((doctor, index) => (
+                  <Marker
+                    key={index}
+                    position={{ lat: doctor.latitude, lng: doctor.longitude }}
+                    onClick={() => setSelectedDoctor(doctor)}
+                    icon={{
+                      url: doctor.category.includes(specialty || 'doctor')
+                        ? "http://maps.google.com/mapfiles/ms/icons/green-dot.png"
+                        : "http://maps.google.com/mapfiles/ms/icons/red-dot.png"
+                    }}
+                  />
+                ))}
 
                 {/* Info window for selected doctor */}
                 {selectedDoctor && (
                   <InfoWindow
                     position={{
-                      lat: getPrimaryPractice(selectedDoctor).lat,
-                      lng: getPrimaryPractice(selectedDoctor).lon
+                      lat: selectedDoctor.latitude,
+                      lng: selectedDoctor.longitude
                     }}
                     onCloseClick={() => setSelectedDoctor(null)}
                   >
                     <div className="max-w-xs">
-                      <h3 className="font-bold text-lg">
-                        {selectedDoctor.profile.first_name} {selectedDoctor.profile.last_name}, {selectedDoctor.profile.title}
-                      </h3>
-                      <p className="text-sm text-gray-600">
-                        {selectedDoctor.specialties.map(s => s.name).join(', ')}
-                      </p>
-                      {getPrimaryPractice(selectedDoctor).visit_address && (
-                        <p className="text-sm mt-1">
-                          {getPrimaryPractice(selectedDoctor).visit_address.street},<br />
-                          {getPrimaryPractice(selectedDoctor).visit_address.city}, {getPrimaryPractice(selectedDoctor).visit_address.state} {getPrimaryPractice(selectedDoctor).visit_address.zip}
-                        </p>
-                      )}
-                      {getPrimaryPractice(selectedDoctor).phones && getPrimaryPractice(selectedDoctor).phones.length > 0 && (
-                        <p className="text-sm mt-1">
-                          📞 {getPrimaryPractice(selectedDoctor).phones[0].number}
-                        </p>
-                      )}
+                      <h3 className="font-bold text-lg">{selectedDoctor.name}</h3>
                       <p className="text-sm mt-1">
-                        {getPrimaryPractice(selectedDoctor).accepts_new_patients ?
-                          '✅ Accepting new patients' :
-                          '❌ Not accepting new patients'}
+                        {selectedDoctor.address}
                       </p>
+                      <p className="text-sm mt-1">
+                        {getCategoryIcon(selectedDoctor.category)} {selectedDoctor.category.join(', ')}
+                      </p>
+                      {(selectedDoctor as any).distance && (
+                        <p className="text-sm mt-1">
+                          📍 {(selectedDoctor as any).distance.toFixed(1)} km away
+                        </p>
+                      )}
                     </div>
                   </InfoWindow>
                 )}
@@ -275,54 +210,42 @@ const FindDoctors: React.FC = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {doctors.map((doctor) => {
-                  const practice = getPrimaryPractice(doctor);
-
-                  return (
-                    <div
-                      key={doctor.uid}
-                      className="bg-white p-4 rounded shadow-md hover:shadow-lg transition-shadow cursor-pointer"
-                      onClick={() => {
-                        setSelectedDoctor(doctor);
-                        setMapCenter({
-                          lat: practice.lat,
-                          lng: practice.lon
-                        });
-                      }}
-                    >
-                      <div className="flex items-start">
-                        {doctor.profile.image_url && (
-                          <img
-                            src={doctor.profile.image_url}
-                            alt={`Dr. ${doctor.profile.last_name}`}
-                            className="w-16 h-16 rounded-full mr-4 object-cover"
-                          />
-                        )}
-                        <div>
-                          <h3 className="font-bold">
-                            {doctor.profile.first_name} {doctor.profile.last_name}, {doctor.profile.title}
-                          </h3>
-                          <p className="text-sm text-gray-600">
-                            {doctor.specialties.map(s => s.name).join(', ')}
-                          </p>
-                          <p className="text-sm mt-1">
-                            {practice.distance.toFixed(1)} km away
-                          </p>
-                          {practice.visit_address && (
-                            <p className="text-sm mt-1">
-                              {practice.visit_address.street}, {practice.visit_address.city}
-                            </p>
-                          )}
-                          {practice.phones && practice.phones.length > 0 && (
-                            <p className="text-sm mt-1">
-                              📞 {practice.phones[0].number}
-                            </p>
-                          )}
+                {doctors.map((doctor, index) => (
+                  <div
+                    key={index}
+                    className={`bg-white p-4 rounded shadow-md hover:shadow-lg transition-shadow cursor-pointer ${doctor.category.includes(specialty || "doctor") ? 'border-l-4 border-blue-500' : 'border-l-4 border-gray-500'
+                      }`}
+                    onClick={() => {
+                      setSelectedDoctor(doctor);
+                      setMapCenter({
+                        lat: doctor.latitude,
+                        lng: doctor.longitude
+                      });
+                    }}
+                  >
+                    <div className="flex items-start">
+                      <div className="bg-blue-100 text-blue-800 rounded-full w-12 h-12 flex items-center justify-center text-2xl mr-4">
+                        {getCategoryIcon(doctor.category)}
+                      </div>
+                      <div>
+                        <h3 className="font-bold">{doctor.name}</h3>
+                        <p className="text-sm mt-1">
+                          {(doctor as any).distance && `${(doctor as any).distance.toFixed(1)} km away`}
+                        </p>
+                        <p className="text-sm mt-1">
+                          {doctor.address}
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {doctor.category.map((cat, i) => (
+                            <span key={i} className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-800">
+                              {cat}
+                            </span>
+                          ))}
                         </div>
                       </div>
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
             )}
           </div>

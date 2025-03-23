@@ -1,17 +1,17 @@
-"use client"
-import React, { useState } from 'react';
-import { FileText, MessageSquare, Pill, FileBarChart, Home } from 'lucide-react';
-import HeaderProfileBtn from '@/app/(root)/_components/HeaderProfileBtn';
-import Link from 'next/link';
+"use client";
+import React, { useState } from "react";
+import { FileText, MessageSquare, Pill, FileBarChart, Home } from "lucide-react";
+import HeaderProfileBtn from "@/app/(root)/_components/HeaderProfileBtn";
+import Link from "next/link";
 
 const GlassNavbar = () => {
-  const [activeItem, setActiveItem] = useState('Dr-near-me');
+  const [activeItem, setActiveItem] = useState("Dr-near-me");
 
   const navItems = [
-    { id: 'Dr-near-me', label: 'Dr Near Me', icon: <FileText className="w-5 h-5" /> },
-    { id: 'talk-to-therapist', label: 'Talk to Therapist', icon: <MessageSquare className="w-5 h-5" /> },
-    { id: 'get-medicine', label: 'Get Medicine', icon: <Pill className="w-5 h-5" /> },
-    { id: 'check-reports', label: 'Check Reports', icon: <FileBarChart className="w-5 h-5" /> },
+    { id: "Dr-near-me", label: "Dr Near Me", icon: <FileText className="w-5 h-5" />, path: "/find-doc" },
+    { id: "talk-to-therapist", label: "Talk to Therapist", icon: <MessageSquare className="w-5 h-5" />, path: "/therapist" },
+    { id: "get-medicine", label: "Get Medicine", icon: <Pill className="w-5 h-5" />, path: "/get-med" },
+    { id: "check-reports", label: "Check Reports", icon: <FileBarChart className="w-5 h-5" />, path: "/reports" },
   ];
 
   return (
@@ -28,20 +28,23 @@ const GlassNavbar = () => {
           {/* Navigation Items */}
           <div className="flex items-center space-x-1">
             {navItems.map((item) => (
-              <button
-                key={item.id}
-                className={`flex items-center px-4 py-2 rounded-full transition-all duration-300 ${activeItem === item.id
-                    ? 'bg-[#084A6D]/70 text-white shadow-md'
-                    : 'hover:bg-white/30 text-[#084A6D]'
-                  }`}
-                onClick={() => setActiveItem(item.id)}
-              >
-                <div className={`transition-transform duration-300 ${activeItem === item.id ? 'scale-110' : 'scale-100'
-                  }`}>
-                  {item.icon}
-                </div>
-                <span className="ml-2 text-sm font-medium">{item.label}</span>
-              </button>
+              <Link key={item.id} href={item.path} passHref>
+                <button
+                  className={`flex items-center px-4 py-2 rounded-full transition-all duration-300 ${activeItem === item.id
+                      ? "bg-[#084A6D]/70 text-white shadow-md"
+                      : "hover:bg-white/30 text-[#084A6D]"
+                    }`}
+                  onClick={() => setActiveItem(item.id)}
+                >
+                  <div
+                    className={`transition-transform duration-300 ${activeItem === item.id ? "scale-110" : "scale-100"
+                      }`}
+                  >
+                    {item.icon}
+                  </div>
+                  <span className="ml-2 text-sm font-medium">{item.label}</span>
+                </button>
+              </Link>
             ))}
           </div>
           <HeaderProfileBtn />
